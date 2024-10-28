@@ -1,14 +1,14 @@
 # PerfNvim
-
 PerfNvim is a Neovim plugin designed to integrate Perforce version control operations seamlessly into your workflow. It provides easy-to-use key mappings for common Perforce commands, enhancing your productivity.
 
 ## Features
 
-- Add current buffer to Perforce (`p4 add`)
+- Add current buffer to Perforce (`p4 add`) <br> <img src="./perfnvim1.gif" width="400"/>  
 - Edit current buffer in Perforce (`p4 edit`)
 - Revert unchanged files
+- Signs in changed lines: <br> <img src="./perfnvim3.gif" width="400"/>  
 - Navigate between changed lines
-- View checked out files using Telescope
+- View checked out files using Telescope <br> <img src="./perfnvim2.gif" width="400"/>  
 
 ## Installation
 
