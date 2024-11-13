@@ -10,7 +10,7 @@ function M._GetP4OpenedPaths()
 	end
 	local client_stream = client_helpers._GetClientStream()
 	if not client_stream then
-        client_stream = "/"
+		client_stream = "/"
 	end
 	local p4openedcommand = "p4 opened -s | awk '{print $1}' | sed 's|^" .. client_stream .. "|" .. client_root .. "|'"
 	local handle = io.popen(p4openedcommand)
