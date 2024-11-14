@@ -13,6 +13,9 @@ function M._GetP4OpenedPaths()
 		client_stream = "/"
 	end
 	local p4openedcommand = "p4 opened -s | awk '{print $1}' | sed 's|^" .. client_stream .. "|" .. client_root .. "|'"
+	if vim.g.selected_changelist then
+		p4openedcommand = "p4 opened -s | grep " .. vim.g.selected_changelist .. " | awk '{print $1}' | sed 's|^" .. client_stream .. "|" .. client_root .. "|'"
+	end
 	local handle = io.popen(p4openedcommand)
 	if not handle then
 		print("Failed to run p4 opened command")
