@@ -20,7 +20,7 @@ function M.SelectChangelistInteractively(action)
 	-- Alternative commands (1 preferred):
 	-- 1 : p4 changelists -s pending -c <clientname> | cut -d' ' -f2
 	-- 2 : p4 opened -s | cut -d' ' -f5 | uniq
-	local handle = io.popen("p4 changelists -s pending -c " .. client_helpers._GetClientName() .. " | cut -d' ' -f2")
+ 	local handle = io.popen("p4 changelists -s pending -c " .. client_helpers._GetClientName())
 	if not handle then
 		print("Failed to run p4 changelists command")
 		return
@@ -28,17 +28,14 @@ function M.SelectChangelistInteractively(action)
 	local result = handle:read("*a")
 	handle:close()
 
+    -- Pattern to match change number and description
+    local pattern = "Change (%d+) on .- '%s*(.-)%s*'"
+
 	-- Get description for all the changelist numbers
 	local changelists = {}
-	for changelist in result:gmatch("%d+") do
-		-- Fetch the description for each changelist
-		local desc_handle = io.popen(string.format("p4 -Ztag -F %%desc%% describe -s %s", changelist))
-		if desc_handle then
-			local description = desc_handle:read("*a"):gsub("\n", " ")
-			desc_handle:close()
-			table.insert(changelists, string.format("- Change %s: %s", changelist, description))
-		end
-	end
+    for change_number, description in result:gmatch(pattern) do
+		table.insert(changelists, string.format("- Change %s: %s", change_number, description))
+    end
 
 	-- Also allow to create a new changelist
 	table.insert(changelists, string.format("New..."))
@@ -48,12 +45,12 @@ function M.SelectChangelistInteractively(action)
 	vim.api.nvim_buf_set_lines(newbuf, 0, -1, false, changelists)
 
 	-- Define window options
-	local width = 100
+	local width = 120
 	local height = 3 * #changelists
 	local opts = {
 		relative = "editor",
 		width = width,
-		height = math.min(height, 10), -- Limit height to avoid overly large windows
+		height = math.min(height, 20), -- Limit height to avoid overly large windows
 		col = (vim.o.columns - width) / 2,
 		row = (vim.o.lines - height) / 2,
 		style = "minimal",
@@ -78,6 +75,7 @@ function M.SelectChangelistInteractively(action)
 		if changelist then
 			-- Run p4 add with the selected changelist
 			local cmd = string.format("p4 " .. action .. " -c %s %s", changelist, filepath)
+            print("cmd: " .. cmd)
 			vim.cmd("!" .. cmd)
 			vim.api.nvim_win_close(win, true)
 		elseif line:match("New...") then
@@ -152,6 +150,7 @@ function M.SelectChangelistInteractively(action)
 			local changelist = p4ChangeIResult:match("Change (%d+) created.")
 			if changelist then
 				local cmd = string.format("p4 " .. action .. " -c %s %s", changelist, filepath)
+                print("!cmd: " .. cmd)
 				vim.cmd("!" .. cmd)
 			else
 				print("Failed to create changelist")
