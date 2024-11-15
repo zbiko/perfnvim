@@ -5,7 +5,18 @@ local helpers = require("perfnvim.helpers.other_helpers")
 
 -- Function to list changelists and allow selection
 function M.SelectChangelistInteractively(action)
-	-- Get all the different changelist numbers in current client
+    local filepath = vim.api.nvim_buf_get_name(0)
+    if filepath == "" then
+        print("Cannot add/edit file to a changelist: no file associated with the current buffer.")
+        return
+    end
+    if vim.g.selected_changelist_win then
+    	local cmd = string.format("p4 " .. action .. " -c %s %s", vim.g.selected_changelist_win, filepath)
+		vim.cmd("!" .. cmd)
+        return
+    end
+
+    -- Get all the different changelist numbers in current client
 	-- Alternative commands (1 preferred):
 	-- 1 : p4 changelists -s pending -c <clientname> | cut -d' ' -f2
 	-- 2 : p4 opened -s | cut -d' ' -f5 | uniq
@@ -31,12 +42,6 @@ function M.SelectChangelistInteractively(action)
 
 	-- Also allow to create a new changelist
 	table.insert(changelists, string.format("New..."))
-
-	local filepath = vim.api.nvim_buf_get_name(0)
-	if filepath == "" then
-		print("Cannot add/edit file to a changelist: no file associated with the current buffer.")
-		return
-	end
 
 	-- Create a new buffer and window for displaying changelists
 	local newbuf = vim.api.nvim_create_buf(false, true)
