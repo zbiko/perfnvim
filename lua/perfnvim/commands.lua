@@ -191,11 +191,7 @@ function M.GetP4Opened()
 				end,
 			}),
 			sorter = conf.generic_sorter({}),
-			previewer = previewers.new_termopen_previewer({
-				get_command = function(entry)
-					return { "batcat", "--style=numbers", "--color=always", "--line-range=:500", entry.value }
-				end,
-			}),
+			previewer = conf.file_previewer({}),
 			attach_mappings = function(_, map)
 				map("i", "<CR>", actions.select_default)
 				map("n", "<CR>", actions.select_default)
@@ -206,26 +202,30 @@ function M.GetP4Opened()
 end
 
 function M.GoToPreviousChange()
-	-- Get all signs placed in the current buffer for each group
-	local buf = vim.fn.bufnr()
-	local groups = { "p4signs/add", "p4signs/change", "p4signs/delete" }
-	local all_signs = {}
+    local buf = vim.fn.bufnr()
+    local p4signs = {}
+    local pattern = "^p4signs/.*"
 
-	for _, group in ipairs(groups) do
-		local signs = vim.fn.sign_getplaced(buf, { group = group })
-		if signs[1] and signs[1].signs then
-			for _, sign in ipairs(signs[1].signs) do
-				table.insert(all_signs, sign)
-			end
-		end
-	end
+    -- Get all sign groups
+    local signs = vim.fn.sign_getplaced(buf, { group = '*' })
+
+    -- Filter groups that match the pattern
+    for _, sign in ipairs(signs[1].signs) do
+        if sign.group:match(pattern) then
+            table.insert(p4signs, sign)
+        end
+    end
+
+    if(not p4signs) then
+        return
+    end
 
 	-- Get the current cursor line
 	local current_line = vim.fn.line(".")
 	-- Iterate over the signs to find the next one
 	local continuous_counter = 1
-	helpers._ReverseArray(all_signs)
-	for _, sign in ipairs(all_signs) do
+	helpers._ReverseArray(p4signs)
+	for _, sign in ipairs(p4signs) do
 		if sign.lnum < current_line then
 			if sign.lnum == (current_line - continuous_counter) then
 				continuous_counter = continuous_counter + 1
@@ -235,28 +235,35 @@ function M.GoToPreviousChange()
 			end
 		end
 	end
+    -- wrap around
+    print("wrap around");
+    vim.fn.sign_jump(p4signs[1].id, p4signs[1].group, buf)
 end
 
 function M.GoToNextChange()
-	-- Get all signs placed in the current buffer for each group
-	local buf = vim.fn.bufnr()
-	local groups = { "p4signs/add", "p4signs/change", "p4signs/delete" }
-	local all_signs = {}
+    local buf = vim.fn.bufnr()
+    local p4signs = {}
+    local pattern = "^p4signs/.*"
 
-	for _, group in ipairs(groups) do
-		local signs = vim.fn.sign_getplaced(buf, { group = group })
-		if signs[1] and signs[1].signs then
-			for _, sign in ipairs(signs[1].signs) do
-				table.insert(all_signs, sign)
-			end
-		end
-	end
+    -- Get all sign groups
+    local signs = vim.fn.sign_getplaced(buf, { group = '*' })
+
+    -- Filter groups that match the pattern
+    for _, sign in ipairs(signs[1].signs) do
+        if sign.group:match(pattern) then
+            table.insert(p4signs, sign)
+        end
+    end
+
+    if(not p4signs) then
+        return
+    end
 
 	-- Get the current cursor line
 	local current_line = vim.fn.line(".")
 	-- Iterate over the signs to find the next one
 	local continuous_counter = 1
-	for _, sign in ipairs(all_signs) do
+	for _, sign in ipairs(p4signs) do
 		if sign.lnum > current_line then
 			if sign.lnum == (current_line + continuous_counter) then
 				continuous_counter = continuous_counter + 1
@@ -266,6 +273,9 @@ function M.GoToNextChange()
 			end
 		end
 	end
+    -- wrap around
+    print("wrap around");
+    vim.fn.sign_jump(p4signs[1].id, p4signs[1].group, buf)
 end
 
 return M
