@@ -216,7 +216,7 @@ function M.GoToPreviousChange()
         end
     end
 
-    if(not p4signs) then
+    if(#p4signs == 0) then
         return
     end
 
@@ -255,7 +255,7 @@ function M.GoToNextChange()
         end
     end
 
-    if(not p4signs) then
+    if(not p4signs == 0) then
         return
     end
 
