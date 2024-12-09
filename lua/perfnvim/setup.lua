@@ -4,22 +4,22 @@ local constants = require("perfnvim.constants")
 local change_helpers = require("perfnvim.helpers.change_helpers")
 
 local function setup()
-    local green = vim.api.nvim_get_hl(0, { name = "GitSignsAdd" }).fg
+	local green = vim.api.nvim_get_hl(0, { name = "GitSignsAdd" }).fg
 	vim.api.nvim_set_hl(0, constants.p4addSignHighlight, { fg = green, bg = "NONE" })
 	vim.fn.sign_define(constants.p4addSignName, {
 		text = "▐",
 		texthl = constants.p4addSignHighlight,
 	})
 
-    local yellow = vim.api.nvim_get_hl(0, { name = "GitSignsChange" }).fg
-    vim.api.nvim_set_hl(0, constants.p4changeSignHighlight, { fg = yellow, bg = "NONE" })
+	local yellow = vim.api.nvim_get_hl(0, { name = "GitSignsChange" }).fg
+	vim.api.nvim_set_hl(0, constants.p4changeSignHighlight, { fg = yellow, bg = "NONE" })
 	vim.fn.sign_define(constants.p4changeSignName, {
 		text = "▐",
 		texthl = constants.p4changeSignHighlight,
 	})
 
-    local green = vim.api.nvim_get_hl(0, { name = "GitSignsDelete" }).fg
-	vim.api.nvim_set_hl(0, constants.p4deleteSignHighlight, { fg = green, bg = "NONE" })
+	local red = vim.api.nvim_get_hl(0, { name = "GitSignsDelete" }).fg
+	vim.api.nvim_set_hl(0, constants.p4deleteSignHighlight, { fg = red, bg = "NONE" })
 	vim.fn.sign_define(constants.p4deleteSignName, {
 		text = "▐",
 		texthl = constants.p4deleteSignHighlight,
