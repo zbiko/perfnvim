@@ -5,18 +5,18 @@ local helpers = require("perfnvim.helpers.other_helpers")
 
 -- Function to list changelists and allow selection
 function M.SelectChangelistInteractively(action)
-    local filepath = vim.api.nvim_buf_get_name(0)
-    if filepath == "" then
-        print("Cannot add/edit file to a changelist: no file associated with the current buffer.")
-        return
-    end
-    if vim.g.selected_changelist_win then
-    	local cmd = string.format("p4 " .. action .. " -c %s %s", vim.g.selected_changelist_win, filepath)
+	local filepath = vim.api.nvim_buf_get_name(0)
+	if filepath == "" then
+		print("Cannot add/edit file to a changelist: no file associated with the current buffer.")
+		return
+	end
+	if vim.g.selected_changelist_win then
+		local cmd = string.format("p4 " .. action .. " -c %s %s", vim.g.selected_changelist_win, filepath)
 		vim.cmd("!" .. cmd)
-        return
-    end
+		return
+	end
 
-    -- Get all the different changelist numbers in current client
+	-- Get all the different changelist numbers in current client
 	-- Alternative commands (1 preferred):
 	-- 1 : p4 changelists -s pending -c <clientname> | cut -d' ' -f2
 	-- 2 : p4 opened -s | cut -d' ' -f5 | uniq
@@ -28,14 +28,14 @@ function M.SelectChangelistInteractively(action)
 	local result = handle:read("*a")
 	handle:close()
 
-    -- Pattern to match change number and description
-    local pattern = "Change (%d+) on .- '%s*(.-)%s*'"
+	-- Pattern to match change number and description
+	local pattern = "Change (%d+) on .- '%s*(.-)%s*'"
 
 	-- Get description for all the changelist numbers
 	local changelists = {}
-    for change_number, description in result:gmatch(pattern) do
+	for change_number, description in result:gmatch(pattern) do
 		table.insert(changelists, string.format("- Change %s: %s", change_number, description))
-    end
+	end
 
 	-- Also allow to create a new changelist
 	table.insert(changelists, string.format("New..."))
@@ -75,7 +75,7 @@ function M.SelectChangelistInteractively(action)
 		if changelist then
 			-- Run p4 add with the selected changelist
 			local cmd = string.format("p4 " .. action .. " -c %s %s", changelist, filepath)
-            print("cmd: " .. cmd)
+			print("cmd: " .. cmd)
 			vim.cmd("!" .. cmd)
 			vim.api.nvim_win_close(win, true)
 		elseif line:match("New...") then
@@ -150,7 +150,7 @@ function M.SelectChangelistInteractively(action)
 			local changelist = p4ChangeIResult:match("Change (%d+) created.")
 			if changelist then
 				local cmd = string.format("p4 " .. action .. " -c %s %s", changelist, filepath)
-                print("!cmd: " .. cmd)
+				print("!cmd: " .. cmd)
 				vim.cmd("!" .. cmd)
 			else
 				print("Failed to create changelist")
@@ -161,22 +161,41 @@ function M.SelectChangelistInteractively(action)
 	end
 end
 
+local function short_path(path)
+  local folders = {}
+  for folder in path:gmatch("[^/]+") do
+	table.insert(folders, folder)
+  end
+  if #folders > 4 then
+	return "..." .. "/" .. table.concat(folders, "/", #folders - 3, #folders)
+  else
+	return path
+  end
+end
+
 -- Create a Telescope picker for the p4 opened files
 function M.GetP4Opened()
 	local actions = require("telescope.actions")
 	local pickers = require("telescope.pickers")
 	local finders = require("telescope.finders")
-	local previewers = require("telescope.previewers")
 	local conf = require("telescope.config").values
 
 	local client_root = client_helpers._GetClientRoot()
 	local files = file_helpers._GetP4OpenedPaths()
 	-- Transform files to be relative to client_root
 	local relative_files = {}
+	local opened_files = {}
 	for _, file in ipairs(files) do
-		local relative_path = file:gsub("^" .. client_root .. "/", "")
-		table.insert(relative_files, { full_path = file, relative_path = relative_path })
+		local relative_path = file[1]:gsub("^" .. client_root .. "/", "")
+		if file[2] == "change" then
+			file[2] = "default "
+		end
+		table.insert(relative_files, { full_path = file[1], relative_path = relative_path, changelist = file[2]})
+		opened_files[file[1]] = file[2]
 	end
+	-- save relative_files to a global variable
+	vim.g.perfnvim_p4_opened_files = opened_files
+	vim.g.opened_files_printed=false;
 	pickers
 		.new({}, {
 			prompt_title = "P4 Opened Files",
@@ -185,8 +204,8 @@ function M.GetP4Opened()
 				entry_maker = function(entry)
 					return {
 						value = entry.full_path,
-						display = entry.relative_path,
-						ordinal = entry.relative_path,
+						display = entry.changelist .. " -> " .. short_path(entry.relative_path),
+						ordinal = entry.changelist .. " -> " .. short_path(entry.relative_path),
 					}
 				end,
 			}),
@@ -202,23 +221,23 @@ function M.GetP4Opened()
 end
 
 function M.GoToPreviousChange()
-    local buf = vim.fn.bufnr()
-    local p4signs = {}
-    local pattern = "^p4signs/.*"
+	local buf = vim.fn.bufnr()
+	local p4signs = {}
+	local pattern = "^p4signs/.*"
 
-    -- Get all sign groups
-    local signs = vim.fn.sign_getplaced(buf, { group = '*' })
+	-- Get all sign groups
+	local signs = vim.fn.sign_getplaced(buf, { group = '*' })
 
-    -- Filter groups that match the pattern
-    for _, sign in ipairs(signs[1].signs) do
-        if sign.group:match(pattern) then
-            table.insert(p4signs, sign)
-        end
-    end
+	-- Filter groups that match the pattern
+	for _, sign in ipairs(signs[1].signs) do
+		if sign.group:match(pattern) then
+			table.insert(p4signs, sign)
+		end
+	end
 
-    if(#p4signs == 0) then
-        return
-    end
+	if(#p4signs == 0) then
+		return
+	end
 
 	-- Get the current cursor line
 	local current_line = vim.fn.line(".")
@@ -235,29 +254,29 @@ function M.GoToPreviousChange()
 			end
 		end
 	end
-    -- wrap around
-    print("wrap around");
-    vim.fn.sign_jump(p4signs[1].id, p4signs[1].group, buf)
+	-- wrap around
+	print("wrap around");
+	vim.fn.sign_jump(p4signs[1].id, p4signs[1].group, buf)
 end
 
 function M.GoToNextChange()
-    local buf = vim.fn.bufnr()
-    local p4signs = {}
-    local pattern = "^p4signs/.*"
+	local buf = vim.fn.bufnr()
+	local p4signs = {}
+	local pattern = "^p4signs/.*"
 
-    -- Get all sign groups
-    local signs = vim.fn.sign_getplaced(buf, { group = '*' })
+	-- Get all sign groups
+	local signs = vim.fn.sign_getplaced(buf, { group = '*' })
 
-    -- Filter groups that match the pattern
-    for _, sign in ipairs(signs[1].signs) do
-        if sign.group:match(pattern) then
-            table.insert(p4signs, sign)
-        end
-    end
+	-- Filter groups that match the pattern
+	for _, sign in ipairs(signs[1].signs) do
+		if sign.group:match(pattern) then
+			table.insert(p4signs, sign)
+		end
+	end
 
-    if(not p4signs == 0) then
-        return
-    end
+	if(not p4signs == 0) then
+		return
+	end
 
 	-- Get the current cursor line
 	local current_line = vim.fn.line(".")
@@ -273,9 +292,46 @@ function M.GoToNextChange()
 			end
 		end
 	end
-    -- wrap around
-    print("wrap around");
-    vim.fn.sign_jump(p4signs[1].id, p4signs[1].group, buf)
+	-- wrap around
+	print("wrap around");
+	vim.fn.sign_jump(p4signs[1].id, p4signs[1].group, buf)
+end
+
+function M.GetP4Data()
+	local results = {}
+
+	-- Get opened files
+	local files = file_helpers._GetP4OpenedPaths()
+	if files == nil then
+		print("No p4 opened files (or P4 connection failed)")
+		return nil
+	end
+
+	local opened_files = {}
+	for _, file in ipairs(files) do
+		if file[2] == "change" then
+			file[2] = "default"
+		end
+		opened_files[file[1]] = file[2]
+	end
+	results.files = opened_files
+
+	-- Get changelist
+	local handle = io.popen("p4 changelists -s pending -c " .. client_helpers._GetClientName())
+	if not handle then
+		print("Failed to run p4 changelists command")
+		return
+	end
+	local result = handle:read("*a")
+	handle:close()
+	local pattern = "Change (%d+) on .- '%s*(.-)%s*'"
+	local changelists = {}
+	for change_number, description in result:gmatch(pattern) do
+		changelists[change_number] = description
+	end
+	results.changelists = changelists
+
+	return results
 end
 
 return M

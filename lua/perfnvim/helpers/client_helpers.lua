@@ -2,9 +2,9 @@ local M = {}
 
 function M._GetP4Info()
 	-- Execute the 'p4 info' command and capture the output
-	local handle = io.popen("p4 info")
+	local handle = io.popen("p4 info" .. " 2> /dev/null")
 	if not handle then
-		print("Failed to run p4 command")
+		print("Failed to run p4 info command")
 		return
 	end
 	local result = handle:read("*a")
