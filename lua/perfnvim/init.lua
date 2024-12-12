@@ -21,27 +21,38 @@ function M.setup()
 	end, {})
 	setup.setup()
 
+    vim.g.perfnvim_p4_changelists= {}
+    vim.g.perfnvim_p4_opened_files= {}
+    vim.g.perfnvim_thread_running = false
+
 	local update_global_values_cb = vim.uv.new_async(function(changelists, opened_files)
 		vim.g.perfnvim_p4_changelists = json.decode(changelists)
 		vim.g.perfnvim_p4_opened_files = json.decode(opened_files)
+		vim.g.perfnvim_thread_running = false
 	end)
 
 	local timer = vim.uv.new_timer()
-	timer:start(0, 10000, function()
-		vim.uv.new_thread({},function (cb)
-			local json = require ("perfnvim.json")
-			local cmds = require("perfnvim.commands")
-			local results = cmds.GetP4Data()
-			if results == nil then
-				print("Cant connect to P4")
-				return
-			end
-			local serialized_changelists = json.encode(results.changelists)
-			local serialized_files = json.encode(results.files)
-			vim.uv.async_send(cb, serialized_changelists, serialized_files)
-		end, update_global_values_cb)
-	end)
-
+    if timer ~= nil then
+        timer:start(0, 10000, function()
+            if vim.g.perfnvim_thread_running == true then
+                return
+            end
+            vim.g.perfnvim_thread_running = true
+            vim.uv.new_thread({},function (cb)
+                local json = require ("perfnvim.json")
+                local cmds = require("perfnvim.commands")
+                local results = cmds.GetP4Data()
+                if results == nil then
+                    print("Cant connect to P4")
+                    vim.uv.async_send(cb, json.encode({}), json.encode({}))
+                    return
+                end
+                local serialized_changelists = json.encode(results.changelists)
+                local serialized_files = json.encode(results.files)
+                vim.uv.async_send(cb, serialized_changelists, serialized_files)
+            end, update_global_values_cb)
+        end)
+    end
 end
 
 function M.P4add()
