@@ -21,6 +21,7 @@ function M.setup()
 	end, {})
 	setup.setup()
 
+    vim.g.perfnvim_enable = false
     vim.g.perfnvim_p4_changelists= {}
     vim.g.perfnvim_p4_opened_files= {}
     vim.g.perfnvim_thread_running = false
@@ -34,7 +35,7 @@ function M.setup()
 	local timer = vim.uv.new_timer()
     if timer ~= nil then
         timer:start(0, 10000, function()
-            if vim.g.perfnvim_thread_running == true then
+            if vim.g.perfnvim_enable == false or vim.g.perfnvim_thread_running == true then
                 return
             end
             vim.g.perfnvim_thread_running = true
@@ -73,6 +74,17 @@ end
 
 function M.P4prev()
 	commands.GoToPreviousChange()
+end
+
+function M.P4enable()
+    vim.g.perfnvim_enable = true
+end
+
+function M.P4disable()
+    vim.g.perfnvim_enable = false
+    vim.g.perfnvim_p4_changelists= {}
+    vim.g.perfnvim_p4_opened_files= {}
+    vim.g.perfnvim_thread_running = false
 end
 
 return M
