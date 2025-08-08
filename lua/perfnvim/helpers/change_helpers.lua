@@ -88,9 +88,11 @@ function M._AnnotateSigns()
 	local function on_exit(job_id, exit_code, event)
 		if event == "exit" then
 			local lines = vim.split(table.concat(diff_output, "\n"), "\n")
-			M._AnnotateAddedLines(lines, file_path)
-			M._AnnotateChangedLines(lines, file_path)
-			M._AnnotateDeletedLines(lines, file_path)
+            if #lines > 0 then
+                M._AnnotateAddedLines(lines, file_path)
+                M._AnnotateChangedLines(lines, file_path)
+                M._AnnotateDeletedLines(lines, file_path)
+            end
 		end
 	end
 
