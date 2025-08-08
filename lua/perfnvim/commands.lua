@@ -180,27 +180,28 @@ function M.GetP4Opened()
 	local finders = require("telescope.finders")
 	local conf = require("telescope.config").values
 
-	local client_root = client_helpers._GetClientRoot()
-	local files = file_helpers._GetP4OpenedPaths()
-	-- Transform files to be relative to client_root
-	local relative_files = {}
-	local opened_files = {}
-	for _, file in ipairs(files) do
-		local relative_path = file[1]:gsub("^" .. client_root .. "/", "")
-		if file[2] == "change" then
-			file[2] = "default "
-		end
-		table.insert(relative_files, { full_path = file[1], relative_path = relative_path, changelist = file[2]})
-		opened_files[file[1]] = file[2]
-	end
-	-- save relative_files to a global variable
-	vim.g.perfnvim_p4_opened_files = opened_files
-	vim.g.opened_files_printed=false;
+    if (not vim.g.perfnvim_thread_running)
+    then
+	    local files = file_helpers._GetP4OpenedPaths()
+
+        -- Transform files to be relative to client_root
+        local opened_files_info = {}
+        for _, file in ipairs(files or {}) do
+            local relative_path = file[1]:gsub("^" .. vim.g.perfnvim_client_root .. "/", "")
+            if file[2] == "change" then
+                file[2] = "default "
+            end
+            table.insert(opened_files_info, { full_path = file[1], relative_path = relative_path, changelist = file[2]})
+        end
+        -- save relative_files to a global variable
+        vim.g.perfnvim_p4_opened_files = opened_files_info
+    end
+
 	pickers
 		.new({}, {
 			prompt_title = "P4 Opened Files",
 			finder = finders.new_table({
-				results = relative_files,
+				results = vim.g.perfnvim_p4_opened_files,
 				entry_maker = function(entry)
 					return {
 						value = entry.full_path,
@@ -210,12 +211,11 @@ function M.GetP4Opened()
 				end,
 			}),
 			sorter = conf.generic_sorter({}),
-			previewer = conf.file_previewer({}),
-			attach_mappings = function(_, map)
-				map("i", "<CR>", actions.select_default)
-				map("n", "<CR>", actions.select_default)
-				return true
-			end,
+            attach_mappings = function(_, map)
+                map("i", "<CR>", actions.select_default)
+                map("n", "<CR>", actions.select_default)
+                return true
+            end,
 		})
 		:find()
 end
@@ -235,7 +235,8 @@ function M.GoToPreviousChange()
 		end
 	end
 
-	if(#p4signs == 0) then
+	if next(p4signs) == nil then
+        print("No changes found")
 		return
 	end
 
@@ -255,7 +256,7 @@ function M.GoToPreviousChange()
 		end
 	end
 	-- wrap around
-	print("wrap around");
+	print("Wrap around");
 	vim.fn.sign_jump(p4signs[1].id, p4signs[1].group, buf)
 end
 
@@ -274,7 +275,8 @@ function M.GoToNextChange()
 		end
 	end
 
-	if(not p4signs == 0) then
+	if next(p4signs) == nil then
+        print("No changes found")
 		return
 	end
 
@@ -293,7 +295,7 @@ function M.GoToNextChange()
 		end
 	end
 	-- wrap around
-	print("wrap around");
+	print("Wrap around");
 	vim.fn.sign_jump(p4signs[1].id, p4signs[1].group, buf)
 end
 

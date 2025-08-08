@@ -1,6 +1,8 @@
 local setup = require("perfnvim.setup")
 local commands = require("perfnvim.commands")
 local json = require ("perfnvim.json")
+local client_helpers = require("perfnvim.helpers.client_helpers")
+
 local M = {}
 
 function M.setup()
@@ -25,11 +27,25 @@ function M.setup()
     vim.g.perfnvim_p4_changelists= {}
     vim.g.perfnvim_p4_opened_files= {}
     vim.g.perfnvim_thread_running = false
+	vim.g.perfnvim_client_root = client_helpers._GetClientRoot()
 
 	local update_global_values_cb = vim.uv.new_async(function(changelists, opened_files)
 		vim.g.perfnvim_p4_changelists = json.decode(changelists)
-		vim.g.perfnvim_p4_opened_files = json.decode(opened_files)
 		vim.g.perfnvim_thread_running = false
+
+        local files = json.decode(opened_files)
+        -- Transform files to be relative to client_root
+        local opened_files_info = {}
+        for file,chlist in pairs(files)  do
+            local relative_path = file:gsub("^" .. vim.g.perfnvim_client_root .. "/", "")
+            if chlist == "change" then
+                chlist = "default "
+            end
+            table.insert(opened_files_info, { full_path = file, relative_path = relative_path, changelist = chlist})
+        end
+        -- save relative_files to a global variable
+        vim.g.perfnvim_p4_opened_files = opened_files_info
+
 	end)
 
 	local timer = vim.uv.new_timer()
