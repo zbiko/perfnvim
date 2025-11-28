@@ -180,18 +180,26 @@ function M.GetP4Opened()
 	local finders = require("telescope.finders")
 	local conf = require("telescope.config").values
 
-    if (not vim.g.perfnvim_thread_running)
-    then
-	    local files = file_helpers._GetP4OpenedPaths()
+    if vim.g.perfnvim_enable == false then
+        local opened_paths = file_helpers._GetP4OpenedPaths()
+        if opened_paths == nil then
+            print("No p4 opened files (or P4 connection failed)")
+            return nil
+        end
 
+        local opened_files = {}
+        for _, file in ipairs(opened_paths) do
+            opened_files[file[1]] = {file[2],file[3]}
+            if file[3] == "default" then
+            end
+        end
         -- Transform files to be relative to client_root
         local opened_files_info = {}
-        for _, file in ipairs(files or {}) do
-            local relative_path = file[1]:gsub("^" .. vim.g.perfnvim_client_root .. "/", "")
-            if file[2] == "change" then
-                file[2] = "default "
-            end
-            table.insert(opened_files_info, { full_path = file[1], relative_path = relative_path, changelist = file[2]})
+        for file, file_info in pairs(opened_files) do
+            local type = file_info[1]
+            local chlist = file_info[2]
+            local relative_path = file:gsub("^" .. vim.g.perfnvim_client_root .. "/", "")
+            table.insert(opened_files_info, { full_path = file, relative_path = relative_path, changelist = chlist, type = type})
         end
         -- save relative_files to a global variable
         vim.g.perfnvim_p4_opened_files = opened_files_info
@@ -199,7 +207,6 @@ function M.GetP4Opened()
 
 	pickers
 		.new({}, {
-			prompt_title = "P4 Opened Files",
 			finder = finders.new_table({
 				results = vim.g.perfnvim_p4_opened_files,
 				entry_maker = function(entry)
@@ -303,22 +310,23 @@ function M.GetP4Data()
 	local results = {}
 
 	-- Get opened files
-	local files = file_helpers._GetP4OpenedPaths()
-	if files == nil then
+	local opened_paths = file_helpers._GetP4OpenedPaths()
+	if opened_paths == nil then
 		print("No p4 opened files (or P4 connection failed)")
 		return nil
 	end
 
 	local opened_files = {}
-	for _, file in ipairs(files) do
-		if file[2] == "change" then
-			file[2] = "default"
-		end
-		opened_files[file[1]] = file[2]
+    local has_default = false
+	for _, file in ipairs(opened_paths) do
+		opened_files[file[1]] = {file[2],file[3]}
+        if file[3] == "default" then
+            has_default = true
+        end
 	end
 	results.files = opened_files
 
-	-- Get changelist
+	-- Get changelists
 	local handle = io.popen("p4 changelists -s pending -c " .. client_helpers._GetClientName())
 	if not handle then
 		print("Failed to run p4 changelists command")
@@ -328,6 +336,9 @@ function M.GetP4Data()
 	handle:close()
 	local pattern = "Change (%d+) on .- '%s*(.-)%s*'"
 	local changelists = {}
+    if has_default then
+        changelists["default"] = "Default changelist"
+    end
 	for change_number, description in result:gmatch(pattern) do
 		changelists[change_number] = description
 	end

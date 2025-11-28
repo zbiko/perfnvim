@@ -4,8 +4,52 @@ local json = require ("perfnvim.json")
 local client_helpers = require("perfnvim.helpers.client_helpers")
 
 local M = {}
+M.opts = {}
 
-function M.setup()
+local update_global_values_cb = vim.uv.new_async(function(changelists, opened_files)
+    vim.g.perfnvim_thread_running = false
+
+    vim.g.perfnvim_p4_changelists = json.decode(changelists)
+    local files = json.decode(opened_files)
+
+    -- Transform files to be relative to client_root
+    local opened_files_info = {}
+    for file, file_info in pairs(files) do
+        local type = file_info[1]
+        local chlist = file_info[2]
+        local relative_path = file:gsub("^" .. vim.g.perfnvim_client_root .. "/", "")
+        table.insert(opened_files_info, { full_path = file, relative_path = relative_path, changelist = chlist, type = type})
+    end
+    -- save relative_files to a global variable
+    vim.g.perfnvim_p4_opened_files = opened_files_info
+
+end)
+
+local function perfnvim_timer_callback()
+    if vim.g.perfnvim_enable == false or vim.g.perfnvim_thread_running == true then
+        return
+    end
+    vim.g.perfnvim_thread_running = true
+    vim.uv.new_thread({}, function(cb)
+        local cmds = require("perfnvim.commands")
+        local json = require("perfnvim.json")
+        local results = cmds.GetP4Data()
+        if results == nil then
+            print("Cant connect to P4")
+            vim.uv.async_send(cb, json.encode({}), json.encode({}))
+            return
+        end
+        local serialized_changelists = json.encode(results.changelists)
+        local serialized_files = json.encode(results.files)
+
+        vim.uv.async_send(cb, serialized_changelists, serialized_files)
+    end, update_global_values_cb)
+end
+
+function M.setup(opts)
+    M.opts = opts or {}
+    print("Perfnvim setup called")
+    print(vim.inspect(M.opts))
 	vim.api.nvim_create_user_command("P4add", function()
 		commands.SelectChangelistInteractively("add")
 	end, {})
@@ -28,47 +72,12 @@ function M.setup()
     vim.g.perfnvim_p4_opened_files= {}
     vim.g.perfnvim_thread_running = false
 	vim.g.perfnvim_client_root = client_helpers._GetClientRoot()
+    print("Perfnvim client root: " .. vim.g.perfnvim_client_root)
 
-	local update_global_values_cb = vim.uv.new_async(function(changelists, opened_files)
-		vim.g.perfnvim_p4_changelists = json.decode(changelists)
-		vim.g.perfnvim_thread_running = false
-
-        local files = json.decode(opened_files)
-        -- Transform files to be relative to client_root
-        local opened_files_info = {}
-        for file,chlist in pairs(files)  do
-            local relative_path = file:gsub("^" .. vim.g.perfnvim_client_root .. "/", "")
-            if chlist == "change" then
-                chlist = "default "
-            end
-            table.insert(opened_files_info, { full_path = file, relative_path = relative_path, changelist = chlist})
-        end
-        -- save relative_files to a global variable
-        vim.g.perfnvim_p4_opened_files = opened_files_info
-
-	end)
-
-	local timer = vim.uv.new_timer()
-    if timer ~= nil then
-        timer:start(0, 10000, function()
-            if vim.g.perfnvim_enable == false or vim.g.perfnvim_thread_running == true then
-                return
-            end
-            vim.g.perfnvim_thread_running = true
-            vim.uv.new_thread({},function (cb)
-                local json = require ("perfnvim.json")
-                local cmds = require("perfnvim.commands")
-                local results = cmds.GetP4Data()
-                if results == nil then
-                    print("Cant connect to P4")
-                    vim.uv.async_send(cb, json.encode({}), json.encode({}))
-                    return
-                end
-                local serialized_changelists = json.encode(results.changelists)
-                local serialized_files = json.encode(results.files)
-                vim.uv.async_send(cb, serialized_changelists, serialized_files)
-            end, update_global_values_cb)
-        end)
+	M.perfnvim_timer = vim.uv.new_timer()
+    if M.opts.autostart == true then
+        print("Autostarting perfnvim...")
+        M.P4enable()
     end
 end
 
@@ -94,9 +103,17 @@ end
 
 function M.P4enable()
     vim.g.perfnvim_enable = true
+
+    if M.perfnvim_timer ~= nil then
+         perfnvim_timer_callback()
+         M.perfnvim_timer:start(0, 5000, perfnvim_timer_callback)
+    else
+        print("Perfnvim timer is nil")
+    end
 end
 
 function M.P4disable()
+    M.perfnvim_timer:stop()
     vim.g.perfnvim_enable = false
     vim.g.perfnvim_p4_changelists= {}
     vim.g.perfnvim_p4_opened_files= {}

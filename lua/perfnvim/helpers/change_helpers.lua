@@ -76,6 +76,7 @@ end
 function M._AnnotateSigns()
 	local file_path = vim.fn.expand("%:p")
 	local diff_output = {}
+    local is_opened_for_add = false
 
 	local function on_stdout(job_id, data, event)
 		if event == "stdout" and data then
@@ -85,8 +86,29 @@ function M._AnnotateSigns()
 		end
 	end
 
+	local function on_stderr(job_id, data, event)
+		if event == "stderr" and data then
+			for _, line in ipairs(data) do
+                if line:match("not opened for edit.") then
+                        is_opened_for_add = true;
+			    end
+            end
+		end
+	end
+
 	local function on_exit(job_id, exit_code, event)
 		if event == "exit" then
+            if is_opened_for_add then
+                -- for each line in the file, mark it as added
+                local bufnr = vim.fn.bufnr(file_path, false) -- true loads the buffer if not loaded
+                local line_count = vim.api.nvim_buf_line_count(bufnr)
+                local lines = {}
+                for i = 1, line_count do
+                    table.insert(lines, i)
+                end
+                _ClearSignsAndPlace(constants.p4addSignGroupIdentifier, constants.p4addSignName, lines, file_path)
+                return
+            end
 			local lines = vim.split(table.concat(diff_output, "\n"), "\n")
             if #lines > 0 then
                 M._AnnotateAddedLines(lines, file_path)
@@ -98,6 +120,7 @@ function M._AnnotateSigns()
 
 	vim.fn.jobstart("p4 diff " .. file_path, {
 		on_stdout = on_stdout,
+        on_stderr = on_stderr,
 		on_exit = on_exit,
 		stdout_buffered = true,
 	})
