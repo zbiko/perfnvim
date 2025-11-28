@@ -41,7 +41,7 @@ end
 function M._AnnotateDeletedLines(lines, file_path)
 	local deleted_lines = {}
 	for _, line in ipairs(lines) do
-		if line:match("^%d+[,?%d+]*d%d+[,?%d+]") then
+		if line:match("^%d+[,?%d+]*d%d+[,?%d+]*") then
 			local start_num = line:match("d(%d+)")
 			if start_num then
 				start_num = tonumber(start_num)
@@ -55,7 +55,7 @@ end
 function M._AnnotateChangedLines(lines, file_path)
 	local changed_lines = {}
 	for _, line in ipairs(lines) do
-		if line:match("^%d+[,?%d+]*c%d+[,?%d+]") then
+		if line:match("^%d+[,?%d+]*c%d+[,?%d+]*") then
 			local start_num, end_num = line:match("c(%d+),?(%d*)")
 			if start_num then
 				start_num = tonumber(start_num)
