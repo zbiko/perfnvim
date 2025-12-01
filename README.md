@@ -10,6 +10,7 @@ This is fork of PerfNvim: a Neovim plugin designed to integrate Perforce version
 - Navigate between changed lines
 - View checked out files using Telescope <br> <img src="./perfnvim2.gif" width="400"/>
 - \[Fork\] Added worker thread that is getting Perforce status in background to avoid blocking the UI (opts.autostart)
+- NOTE: autostart will trigger background worker on every instance of Neovim, which is not optimal
 - \[Fork\] Added lualine integration to show perforce chengelist of current file (worker needs to be enabled): <br> <img src="./perfnvim.bmp" width="400"/> 
 - \[Fork\] Fixed next diff/ precious diff behviour
 - \[Fork\] Marking added lines for the files that were opened with `p4 add`
@@ -24,10 +25,12 @@ Add the following to your `init.lua` or equivalent configuration file:
 
 ```lua
 {
+    {
         "zbiko/perfnvim",
         branch = 'main',
         opts = {
-            autostart = true
+            autostart = false,
+            timer = 5000,
         },
         config = function(_,opts)
             require("perfnvim").setup(opts)
@@ -46,36 +49,47 @@ Add the following to your `init.lua` or equivalent configuration file:
         optional = true,
         event = "VeryLazy",
         dependencies = { "zbiko/perfnvim" },
-        opts = {
-            sections = {
-                lualine_b = {
-                    {
-                        function()
-                            local file_path = vim.fn.expand("%:p")
-                            if #vim.g.perfnvim_p4_opened_files > 0 then
-                                for _, entry in ipairs(vim.g.perfnvim_p4_opened_files) do
-                                    if entry.full_path == file_path then
-                                        if entry.changelist == "default" then
-                                            return " # DEFAULT "
-                                        end
-                                        local changelist_desc = vim.g.perfnvim_p4_changelists[entry.changelist]
-                                        return " #" .. entry.changelist  .. " -> " .. changelist_desc .. " [".. entry.type .."] "
-                                    end
-                                    vim.g.perfnvim_some_elements_exist = true
+        opts = function(_, opts)
+            -- Show status of worker
+            table.insert(
+                opts.sections.lualine_x,
+                2,
+                LazyVim.lualine.status(LazyVim.config.icons.kinds.Control, function()
+                    if vim.g.perfnvim_p4_changelists == nil then
+                        return "error"
+                    end
+                    return (vim.g.perfnvim_thread_running and "pending") or (next(vim.g.perfnvim_p4_changelists) == nil and "error") or "ok"
+                end)
+            );
+            -- Show changelist for current file
+            table.insert(
+                opts.sections.lualine_b,
+                1,
+                function ()
+                    local file_path = vim.fn.expand("%:p")
+                    if #vim.g.perfnvim_p4_opened_files > 0 then
+                        for _, entry in ipairs(vim.g.perfnvim_p4_opened_files) do
+                            if entry.full_path == file_path then
+                                if string.find(entry.changelist, "default") then
+                                    return " # DEFAULT "
                                 end
-                                if vim.g.perfnvim_some_elements_exist then
-                                    vim.g.perfnvim_tmp = true
-                                end
-                                return " # "
+                                local changelist_desc = vim.g.perfnvim_p4_changelists[entry.changelist]
+                                return " #" .. entry.changelist  .. " -> " .. changelist_desc .. " [".. entry.type .."] "
                             end
-                            return " "
-                        end,
-                    },
-                },
-            },
-        }
+                            vim.g.perfnvim_some_elements_exist = true
+                        end
+                        if vim.g.perfnvim_some_elements_exist then
+                            vim.g.perfnvim_tmp = true
+                        end
+                        return " # "
+                    end
+                    return " "
+                end
+            )
+        end,
     }
 }
+
 ```
 
 ### Using [vim-plug](https://github.com/junegunn/vim-plug)

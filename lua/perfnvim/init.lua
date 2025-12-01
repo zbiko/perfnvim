@@ -29,27 +29,28 @@ local function perfnvim_timer_callback()
     if vim.g.perfnvim_enable == false or vim.g.perfnvim_thread_running == true then
         return
     end
-    vim.g.perfnvim_thread_running = true
-    vim.uv.new_thread({}, function(cb)
-        local cmds = require("perfnvim.commands")
-        local json = require("perfnvim.json")
-        local results = cmds.GetP4Data()
-        if results == nil then
-            print("Cant connect to P4")
-            vim.uv.async_send(cb, json.encode({}), json.encode({}))
-            return
-        end
-        local serialized_changelists = json.encode(results.changelists)
-        local serialized_files = json.encode(results.files)
+    if(vim.g.perfnvim_thread_running == false ) then
+        vim.g.perfnvim_thread_running = true
+        vim.uv.new_thread({}, function(cb)
+            local cmds = require("perfnvim.commands")
+            local json = require("perfnvim.json")
+            local results = cmds.GetP4Data()
+            if results == nil then
+                print("Cant connect to P4")
+                vim.uv.async_send(cb, json.encode({}), json.encode({}))
+                return
+            end
+            local serialized_changelists = json.encode(results.changelists)
+            local serialized_files = json.encode(results.files)
 
-        vim.uv.async_send(cb, serialized_changelists, serialized_files)
-    end, update_global_values_cb)
+            vim.uv.async_send(cb, serialized_changelists, serialized_files)
+        end, update_global_values_cb)
+    end
 end
 
 function M.setup(opts)
+    M.timer = 5000;
     M.opts = opts or {}
-    print("Perfnvim setup called")
-    print(vim.inspect(M.opts))
 	vim.api.nvim_create_user_command("P4add", function()
 		commands.SelectChangelistInteractively("add")
 	end, {})
@@ -73,6 +74,10 @@ function M.setup(opts)
     vim.g.perfnvim_thread_running = false
 	vim.g.perfnvim_client_root = client_helpers._GetClientRoot()
     print("Perfnvim client root: " .. vim.g.perfnvim_client_root)
+
+    if M.opts.timer ~= nil then
+        M.timer = M.opts.timer
+    end
 
 	M.perfnvim_timer = vim.uv.new_timer()
     if M.opts.autostart == true then
@@ -106,7 +111,7 @@ function M.P4enable()
 
     if M.perfnvim_timer ~= nil then
          perfnvim_timer_callback()
-         M.perfnvim_timer:start(0, 5000, perfnvim_timer_callback)
+         M.perfnvim_timer:start(0, M.timer, perfnvim_timer_callback)
     else
         print("Perfnvim timer is nil")
     end
