@@ -1,5 +1,9 @@
 # PerfNvim
 This is fork of PerfNvim: a Neovim plugin designed to integrate Perforce version control operations seamlessly into your workflow. It provides easy-to-use key mappings for common Perforce commands, enhancing your productivity.
+The fork implements:
+- line annotation about added / removed / modified coe
+- background worker that updates p4 data making it more responsive
+- status line information on current file (requires lualine) - see example of configuration below.
 
 ## Features
 
