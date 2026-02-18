@@ -20,7 +20,7 @@ function M.SelectChangelistInteractively(action)
 	-- Alternative commands (1 preferred):
 	-- 1 : p4 changelists -s pending -c <clientname> | cut -d' ' -f2
 	-- 2 : p4 opened -s | cut -d' ' -f5 | uniq
- 	local handle = io.popen("p4 changelists -s pending -c " .. client_helpers._GetClientName())
+    local handle = io.popen("p4 changelists -s pending -c " .. client_helpers._GetClientName())
 	if not handle then
 		print("Failed to run p4 changelists command")
 		return
@@ -190,8 +190,6 @@ function M.GetP4Opened()
         local opened_files = {}
         for _, file in ipairs(opened_paths) do
             opened_files[file[1]] = {file[2],file[3]}
-            if file[3] == "default" then
-            end
         end
         -- Transform files to be relative to client_root
         local opened_files_info = {}

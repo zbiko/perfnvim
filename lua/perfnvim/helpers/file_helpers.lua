@@ -25,10 +25,9 @@ function M._GetP4OpenedPaths()
     local changelists = {}
     local types = {}
     for line in result:gmatch("[^\r\n]+") do
-        -- print("Opened line: " .. line)
         local file,type,changelist = line:match("(.*) %- (.*) change ([0-9]+)")
         if file then
-            table.insert(files, file)
+            table.insert(files, "\"" .. file .. "\"")
             table.insert(types, type)
             table.insert(changelists, changelist)
         else
@@ -53,12 +52,9 @@ function M._GetP4OpenedPaths()
 	handle:close()
 
     files = {}
-    local n = 0;
-	for file in result:gmatch("([^ \r\n]+)") do
-        -- insert every third element
-        n = n+1;
-        if (n % 3) == 0 then
-            table.insert(files, file)
+    for line in result:gmatch("[^\r\n]+") do
+        for local_path in line:gmatch(" (/[^/].*)$") do
+            table.insert(files, local_path)
         end
 	end
 
