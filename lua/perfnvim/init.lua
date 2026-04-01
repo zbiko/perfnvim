@@ -1,7 +1,7 @@
-local setup = require("perfnvim.setup")
 local commands = require("perfnvim.commands")
 local json = require ("perfnvim.json")
 local client_helpers = require("perfnvim.helpers.client_helpers")
+local change_helpers = require("perfnvim.helpers.change_helpers")
 
 local M = {}
 M.opts = {}
@@ -66,7 +66,6 @@ function M.setup(opts)
 	vim.api.nvim_create_user_command("P4prev", function()
 		commands.GoToPreviousChange()
 	end, {})
-	setup.setup()
 
     vim.g.perfnvim_enable = false
     vim.g.perfnvim_p4_changelists= {}
@@ -98,14 +97,6 @@ function M.P4opened()
 	commands.GetP4Opened()
 end
 
-function M.P4next()
-	commands.GoToNextChange()
-end
-
-function M.P4prev()
-	commands.GoToPreviousChange()
-end
-
 function M.P4enable()
     vim.g.perfnvim_enable = true
 
@@ -123,6 +114,38 @@ function M.P4disable()
     vim.g.perfnvim_p4_changelists= {}
     vim.g.perfnvim_p4_opened_files= {}
     vim.g.perfnvim_thread_running = false
+end
+
+-- Create a P4 source for mini.diff
+function M.gen_source_p4()
+  return {
+    name = "p4",
+    attach = function(buf_id)
+      -- Make sure to fail if not in a p4 repo
+      local handle = io.popen("p4 opened" .. " 2> /dev/null")
+      if not handle then return false end
+      -- Initial setup: get the reference text from P4
+      local file_path = vim.api.nvim_buf_get_name(buf_id)
+
+      if file_path == "" or not file_path:match("%.") then
+        return false
+      end
+
+      change_helpers._GetP4FileRevision(file_path, buf_id)
+
+      return true
+    end,
+
+    apply_hunks = function(buf_id, hunks)
+      -- This would apply the hunks back to P4 (e.g., p4 edit, then write)
+      local file_path = vim.api.nvim_buf_get_name(buf_id)
+
+      -- Write the file (which triggers P4 to track changes)
+      vim.cmd("write")
+
+      print("Changes written. Run 'p4 submit' to submit changes.")
+    end,
+  }
 end
 
 return M
